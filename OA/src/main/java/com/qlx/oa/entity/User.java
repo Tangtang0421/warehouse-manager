@@ -1,29 +1,68 @@
 package com.qlx.oa.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
-@TableName("`user`")
-public class User {
+import java.io.Serializable;
 
-    @TableId(type = IdType.AUTO)//id为主键
+/**
+ * <p>
+ * 
+ * </p>
+ *
+ * @author qlx
+ * @since 2026-03-10
+ */
+@Getter
+@Setter
+@TableName("sys_user")
+public class User implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * 主键
+     */
+    @TableId(value = "id", type = IdType.AUTO)
     private Integer id;
 
-    private String no;       // 账号
-    private String name;     // 名字
-    private String password; // 密码
-    private Integer age;     // 年龄
-    private Integer sex;     // 性别
-    private String phone;    // 电话
+    /**
+     * 账号
+     */
+    private String no;
 
-    // 数据库里是 role_id，Java 里写成驼峰命名 roleId，MP可以自动映射
+    /**
+     * 名字
+     */
+    private String name;
+
+    /**
+     * 密码
+     */
+    private String password;
+
+    private Integer age;
+
+    /**
+     * 性别
+     */
+    private Integer sex;
+
+    /**
+     * 电话
+     */
+    private String phone;
+
+    /**
+     * 角色 0超级管理员，1管理员，2普通账号
+     */
     private Integer roleId;
 
-    @TableField("isValid") // 数据库里直接拼成了 isValid，加个注解强行绑定，防止 MP 找不到
-    private String isValid;
+    /**
+     * 是否有效，Y有效，其他无效
+     */
+    private String validStatus;
 }
-
