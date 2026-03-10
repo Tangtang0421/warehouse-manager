@@ -2,6 +2,8 @@ package com.qlx.oa.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.qlx.oa.common.QueryPageParam;
 import com.qlx.oa.common.Result;
 import com.qlx.oa.entity.User;
 import com.qlx.oa.service.IUserService;
@@ -61,5 +63,44 @@ public class UserController {
         List<User> list = userService.list(wrapper);
 
         return Result.success(list);
+    }
+    /**
+     * 使用 Wrapper 的单表分页
+     * 因为接收的是复杂对象 QueryPageParam，所以使用 @PostMapping 和 @RequestBody 接收 JSON 格式的请求
+     */
+    @PostMapping("/list/page")
+    public Result<Page<User>> pageList(@RequestBody QueryPageParam queryParam) {
+        //确定返回对象的页数，以及页大小
+        Page<User> page = new Page<>(queryParam.getPageNum(), queryParam.getPageSize());
+
+        // 提取所有的参数
+        String keyword = (String) queryParam.getParam().get("keyword");
+        String roleId = (String) queryParam.getParam().get("roleId");
+        String sex = (String) queryParam.getParam().get("sex");
+
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+
+        // 如果有关键字，就进行模糊匹配
+        if (StringUtils.isNotBlank(keyword)) {
+            // 当多个条件组合时，带有 OR 的模糊查询必须用 .and(w -> ...) 括起来！
+            // 否则 SQL 会变成：WHERE name LIKE ? OR no LIKE ? AND roleId = ?
+            // 加上括号后 SQL 是：WHERE (name LIKE ? OR no LIKE ?) AND roleId = ?
+            wrapper.and(w -> w.like(User::getName, keyword).or().like(User::getNo, keyword));
+        }
+
+        // 如果传了角色 ID，就加上精确等值匹配 (eq)
+        if (StringUtils.isNotBlank(roleId)) {
+            wrapper.eq(User::getRoleId, roleId);
+        }
+
+        // 如果传了性别，也加上精确匹配
+        if (StringUtils.isNotBlank(sex)) {
+            wrapper.eq(User::getSex, sex);
+        }
+
+        // 执行查询
+        Page<User> resultPage = userService.page(page, wrapper);//wrapper类似SQL语法生成器
+
+        return Result.success(resultPage);
     }
 }
