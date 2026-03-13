@@ -13,64 +13,258 @@
       <el-main class="main-content">
         <el-card>
           
-          <el-button type="primary" @click="loadData">点击拉取后端数据库数据！</el-button>
+          <div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
+            <el-input v-model="keyword" placeholder="请输入名字或账号" style="width: 200px" clearable @keyup.enter="loadData" />
+            
+            <el-select v-model="sex" placeholder="请选择性别" style="width: 120px" clearable>
+              <el-option label="男" :value="1" />
+              <el-option label="女" :value="0" />
+            </el-select>
+
+            <el-button type="primary" @click="loadData">查询</el-button>
+            <el-button type="warning" @click="resetParam">重置</el-button>
+            
+            <el-button type="success" @click="handleAdd" style="margin-left: auto;">新增用户</el-button>
+          </div>
           
-          <el-table :data="tableData" style="width: 100%; margin-top: 20px;" border>
-            <el-table-column prop="id" label="ID" width="80" />
-            <el-table-column prop="no" label="账号" width="120" />
-            <el-table-column prop="name" label="姓名" width="120" />
-            <el-table-column prop="phone" label="电话" />
+          <el-table 
+            :data="tableData" 
+            style="width: 100%;" 
+            border
+            :header-cell-style="{ background: '#f4f6f8', color: '#333', fontWeight: 'bold' }"
+          >
+            <el-table-column prop="id" label="ID" width="80" align="center" />
+            <el-table-column prop="no" label="账号" min-width="120" />
+            <el-table-column prop="name" label="姓名" min-width="120" />
+            <el-table-column prop="phone" label="电话" min-width="150" />
+            <el-table-column prop="age" label="年龄" width="80" align="center" />
+            
+            <el-table-column prop="sex" label="性别" width="80" align="center">
+              <template #default="scope">
+                <el-tag :type="scope.row.sex === 1 ? 'primary' : 'danger'">
+                  {{ scope.row.sex === 1 ? '男' : '女' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+
+            <el-table-column prop="roleId" label="角色" width="120" align="center">
+              <template #default="scope">
+                <el-tag v-if="scope.row.roleId === 0" type="danger">超级管理员</el-tag>
+                <el-tag v-else-if="scope.row.roleId === 1" type="primary">管理员</el-tag>
+                <el-tag v-else-if="scope.row.roleId === 2" type="success">普通账号</el-tag>
+                <el-tag v-else type="info">未知角色</el-tag>
+              </template>
+            </el-table-column>
+            
+            <el-table-column label="操作" width="200" fixed="right" align="center">
+              <template #default>
+                <el-button size="small" type="primary" plain>编辑</el-button>
+                <el-button size="small" type="danger" plain>删除</el-button>
+              </template>
+            </el-table-column>
           </el-table>
 
+          <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+            <el-pagination
+              v-model:current-page="pageNum"
+              v-model:page-size="pageSize"
+              :page-sizes="[5, 10, 20, 50]"
+              layout="total, sizes, prev, pager, next, jumper"
+              :total="total"
+              @size-change="handleSizeChange"
+              @current-change="handleCurrentChange"
+            />
+          </div>
         </el-card>
+
+        <el-dialog v-model="dialogVisible" title="新增用户" width="30%" :before-close="handleClose">
+          <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
+            <el-form-item label="账号" prop="no">
+              <el-input v-model="form.no" placeholder="请输入账号" />
+            </el-form-item>
+            <el-form-item label="姓名" prop="name">
+              <el-input v-model="form.name" placeholder="请输入真实姓名" />
+            </el-form-item>
+            <el-form-item label="密码" prop="password">
+              <el-input v-model="form.password" placeholder="请输入默认密码" show-password />
+            </el-form-item>
+            <el-form-item label="电话" prop="phone">
+              <el-input v-model="form.phone" placeholder="请输入手机号" />
+            </el-form-item>
+            <el-form-item label="年龄" prop="age">
+              <el-input v-model="form.age" placeholder="请输入年龄" />
+            </el-form-item>
+            <el-form-item label="性别" prop="sex">
+              <el-select v-model="form.sex" placeholder="请选择性别" style="width: 100%">
+                <el-option label="男" :value="1" />
+                <el-option label="女" :value="0" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="角色" prop="roleId">
+              <el-select v-model="form.roleId" placeholder="请选择角色" style="width: 100%">
+                <el-option label="超级管理员" :value="0" />
+                <el-option label="管理员" :value="1" />
+                <el-option label="普通账号" :value="2" />
+              </el-select>
+            </el-form-item>
+          </el-form>
+          <template #footer>
+            <span class="dialog-footer">
+              <el-button @click="dialogVisible = false">取消</el-button>
+              <el-button type="primary" @click="saveUser">确认保存</el-button>
+            </span>
+          </template>
+        </el-dialog>
+
       </el-main>
     </el-container>
-
   </el-container>
 </template>
 
 <script setup>
 import { ref } from 'vue'
+// 🌟 引入 Element Plus 的消息提示组件
+import { ElMessage } from 'element-plus'
 import SysAside from './components/SysAside.vue'
 import SysHeader from './components/SysHeader.vue'
-
-// 🌟 变化 3：引入咱们刚写好的 Axios 拦截器 (注意路径)
 import request from './utils/request.js' 
 
-// ====== 控制菜单折叠的代码（保持原样） ======
+// ====== 控制菜单折叠 ======
 const isCollapse = ref(false)
 const handleToggle = () => {
   isCollapse.value = !isCollapse.value
 }
 
-// ====== 🌟 核心：联调后端数据的代码 ======
-// 准备一个空数组盒子，一会儿把后端查到的数据塞进这里
-const tableData = ref([])
+// ====== 分页与搜索逻辑 ======
+const tableData = ref([]) 
+const pageNum = ref(1)    
+const pageSize = ref(10)  
+const total = ref(0)      
 
-// 点击按钮时执行的方法
+const keyword = ref('')
+const sex = ref('')
+
 const loadData = () => {
-  // 1. 组装发给后端的 JSON 参数（跟你 Apifox 里填的一模一样）
   const queryParam = {
-    pageNum: 1,
-    pageSize: 10,
-    param: {} // 空条件代表查所有
+    pageNum: pageNum.value,  
+    pageSize: pageSize.value, 
+    param: {
+      keyword: keyword.value,
+      sex: sex.value
+    } 
   }
-
-  // 2. 用 request 向你的分页接口发 POST 请求
   request.post('/user/list/page', queryParam).then(res => {
-    // 打印在控制台给你自己看
-    console.log("后端传回来的数据：", res) 
-    
-    // 3. 把后端返回的 records (用户列表) 强行塞进咱们前端的表格格子里！
-    tableData.value = res.records
-  }).catch(error => {
-    console.error("请求报错了：", error)
+    tableData.value = res.records 
+    total.value = res.total       
   })
 }
+
+const resetParam = () => {
+  keyword.value = '' 
+  sex.value = ''     
+  pageNum.value = 1  
+  loadData()         
+}
+
+const handleSizeChange = (val) => {
+  pageSize.value = val 
+  pageNum.value = 1 
+  loadData()           
+}
+
+const handleCurrentChange = (val) => {
+  pageNum.value = val 
+  loadData()          
+}
+
+// ====== 🌟 新增弹窗与保存逻辑 ======
+const dialogVisible = ref(false) 
+
+// 🌟 1. 拿到表单的“控制权”
+const formRef = ref(null)
+
+const form = ref({
+  no: '',
+  name: '',
+  password: '',
+  phone: '',
+  age: '',
+  sex: null,
+  roleId: null
+})
+
+// 🌟 2. 制定企业级严格的校验规矩
+const rules = {
+  no: [
+    { required: true, message: '账号不能为空', trigger: 'blur' },
+    { min: 3, max: 20, message: '账号长度须在3-20位之间', trigger: 'blur' }
+  ],
+  name: [
+    { required: true, message: '姓名不能为空', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '密码不能为空', trigger: 'blur' },
+    { min: 6, message: '密码最少6位', trigger: 'blur' }
+  ],
+  phone: [
+    { required: true, message: '手机号不能为空', trigger: 'blur' },
+    // 经典正则：必须1开头，第二位3-9，后面9位纯数字
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的11位手机号', trigger: 'blur' }
+  ],
+  age: [
+    { required: true, message: '年龄不能为空', trigger: 'blur' },
+    // 经典正则：18到100岁的纯数字
+    { pattern: /^(1[89]|[2-9]\d|100)$/, message: '年龄必须在18到100岁之间', trigger: 'blur' }
+  ],
+  sex: [
+    { required: true, message: '必须选择性别', trigger: 'change' }
+  ],
+  roleId: [
+    { required: true, message: '必须分配角色', trigger: 'change' }
+  ]
+}
+
+const handleAdd = () => {
+  form.value = { no: '', name: '', password: '', phone: '', age: '', sex: null, roleId: null }
+  dialogVisible.value = true 
+  // 🌟 清除上一次打开弹窗残留的红字报错
+  if (formRef.value) {
+    formRef.value.clearValidate()
+  }
+}
+
+const handleClose = (done) => {
+  done()
+}
+
+// 🌟 完美体验版的保存逻辑
+const saveUser = () => {
+  formRef.value.validate((valid) => {
+    if (valid) {
+      request.post('/user/add', form.value).then(() => {
+        ElMessage.success('新增用户成功！')
+        dialogVisible.value = false
+        loadData()
+      }).catch(() => {
+        // 🛑 核心修改：把这里的 ElMessage 删掉！
+        // 因为全局的 request.js 已经替我们弹过真实的后端报错了。
+        // 我们这里只需要静静地拦截住异常，防止控制台飙红字就行了。
+        console.log("新增失败，拦截器已提示用户")
+      })
+    } else {
+      ElMessage.warning('请检查表单中标红的错误！')
+      return false
+    }
+  })
+}
+
+// 页面加载自动查数据
+loadData() 
+
 </script>
 
 <style>
-/* 全局基础样式（保持原样） */
+/* 全局基础样式保持原样 */
 html, body, #app { margin: 0; padding: 0; height: 100%; }
 .layout-container { height: 100vh; }
 .header-box { background-color: #fff; border-bottom: 1px solid #e6e6e6; padding: 0 20px; box-shadow: 0 1px 4px rgba(0,21,41,.08); }

@@ -33,8 +33,21 @@ public class UserController {
     }
     @PostMapping("/add")
     public Result<Boolean> add(@RequestBody User user){
-        boolean flag =userService.save(user);
-        return flag ? Result.success():Result.error(500,"新增用户失败");
+        String no = user.getNo();
+        if(StringUtils.isBlank(no)){
+            return Result.error(500, "账号不能为空");
+        }
+
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getNo, no);
+        long count = userService.count(wrapper);
+
+        if(count > 0){
+            return Result.error(500, "已有用户，账号已被注册");
+        } else {
+            boolean flag = userService.save(user);
+            return flag ? Result.success() : Result.error(500, "新增用户失败");
+        }
     }
     @DeleteMapping("/delete/{id}")
     public Result<Boolean> delete(@PathVariable Integer id){

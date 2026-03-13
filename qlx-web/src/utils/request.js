@@ -2,14 +2,14 @@ import axios from 'axios'
 // 引入 Element Plus 的消息提示组件，用来弹报错框
 import { ElMessage } from 'element-plus'
 
-// 1. 创建一个 axios 实例 (相当于咱们专属的“数据快递员”)
+// 创建一个 axios 实例
 const request = axios.create({
-    // 注意：这里填你 Spring Boot 后端的地址和端口！(假设是 8090)
+    // 全局装配
     baseURL: 'http://localhost:8090', 
     timeout: 5000 // 快递超时时间：5秒，如果后端 5 秒没响应，直接报错
 })
 
-// 2. 请求拦截器 (快递员出门前，给包裹贴标签)
+// 请求拦截器
 request.interceptors.request.use(config => {
     config.headers['Content-Type'] = 'application/json;charset=utf-8';
     // 💡 以后如果你做了登录功能，用户的 Token 就会在这里统一塞进请求头里发送给后端
@@ -18,7 +18,7 @@ request.interceptors.request.use(config => {
     return Promise.reject(error)
 })
 
-// 3. 响应拦截器 (快递员把后端的数据拿回来了，咱们先拆箱检查！)
+// 响应拦截器
 request.interceptors.response.use(
     response => {
         // response.data 就是你在后端写的那个 Result<T> 对象！！！
