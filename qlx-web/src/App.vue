@@ -57,9 +57,9 @@
             </el-table-column>
             
             <el-table-column label="操作" width="200" fixed="right" align="center">
-              <template #default>
-                <el-button size="small" type="primary" plain>编辑</el-button>
-                <el-button size="small" type="danger" plain>删除</el-button>
+              <template #default="scope">
+                <el-button size="small" type="primary" plain @click="handleEdit(scope.row)">编辑</el-button>
+                <el-button size="small" type="danger" plain @click="handleDelete(scope.row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -77,7 +77,7 @@
           </div>
         </el-card>
 
-        <el-dialog v-model="dialogVisible" title="新增用户" width="30%" :before-close="handleClose">
+        <el-dialog v-model="dialogVisible" :title="form.id ? '编辑用户' : '新增用户'" width="30%" :before-close="handleClose">
           <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
             <el-form-item label="账号" prop="no">
               <el-input v-model="form.no" placeholder="请输入账号" />
@@ -123,8 +123,8 @@
 
 <script setup>
 import { ref } from 'vue'
-// 🌟 引入 Element Plus 的消息提示组件
-import { ElMessage } from 'element-plus'
+// 🌟 引入了 ElMessageBox 用于删除前的弹窗确认
+import { ElMessage, ElMessageBox } from 'element-plus'
 import SysAside from './components/SysAside.vue'
 import SysHeader from './components/SysHeader.vue'
 import request from './utils/request.js' 
@@ -142,7 +142,7 @@ const pageSize = ref(10)
 const total = ref(0)      
 
 const keyword = ref('')
-const sex = ref('')
+const sex = ref(null)
 
 const loadData = () => {
   const queryParam = {
@@ -161,7 +161,7 @@ const loadData = () => {
 
 const resetParam = () => {
   keyword.value = '' 
-  sex.value = ''     
+  sex.value = null     
   pageNum.value = 1  
   loadData()         
 }
@@ -177,13 +177,12 @@ const handleCurrentChange = (val) => {
   loadData()          
 }
 
-// ====== 🌟 新增弹窗与保存逻辑 ======
+// ====== 核心表单与保存逻辑 ======
 const dialogVisible = ref(false) 
-
-// 🌟 1. 拿到表单的“控制权”
 const formRef = ref(null)
 
 const form = ref({
+  id: '',
   no: '',
   name: '',
   password: '',
@@ -193,7 +192,6 @@ const form = ref({
   roleId: null
 })
 
-// 🌟 2. 制定企业级严格的校验规矩
 const rules = {
   no: [
     { required: true, message: '账号不能为空', trigger: 'blur' },
@@ -208,12 +206,10 @@ const rules = {
   ],
   phone: [
     { required: true, message: '手机号不能为空', trigger: 'blur' },
-    // 经典正则：必须1开头，第二位3-9，后面9位纯数字
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的11位手机号', trigger: 'blur' }
   ],
   age: [
     { required: true, message: '年龄不能为空', trigger: 'blur' },
-    // 经典正则：18到100岁的纯数字
     { pattern: /^(1[89]|[2-9]\d|100)$/, message: '年龄必须在18到100岁之间', trigger: 'blur' }
   ],
   sex: [
@@ -225,9 +221,16 @@ const rules = {
 }
 
 const handleAdd = () => {
-  form.value = { no: '', name: '', password: '', phone: '', age: '', sex: null, roleId: null }
+  form.value = { id: '', no: '', name: '', password: '', phone: '', age: '', sex: null, roleId: null }
   dialogVisible.value = true 
-  // 🌟 清除上一次打开弹窗残留的红字报错
+  if (formRef.value) {
+    formRef.value.clearValidate()
+  }
+}
+
+const handleEdit = (row) => {
+  form.value = JSON.parse(JSON.stringify(row)) 
+  dialogVisible.value = true
   if (formRef.value) {
     formRef.value.clearValidate()
   }
@@ -237,24 +240,45 @@ const handleClose = (done) => {
   done()
 }
 
-// 🌟 完美体验版的保存逻辑
 const saveUser = () => {
   formRef.value.validate((valid) => {
     if (valid) {
-      request.post('/user/add', form.value).then(() => {
-        ElMessage.success('新增用户成功！')
+      const url = form.value.id ? '/user/update' : '/user/add'
+      
+      request.post(url, form.value).then(() => {
+        ElMessage.success(form.value.id ? '修改成功！' : '新增成功！')
         dialogVisible.value = false
         loadData()
       }).catch(() => {
-        // 🛑 核心修改：把这里的 ElMessage 删掉！
-        // 因为全局的 request.js 已经替我们弹过真实的后端报错了。
-        // 我们这里只需要静静地拦截住异常，防止控制台飙红字就行了。
-        console.log("新增失败，拦截器已提示用户")
+        console.log("操作失败，拦截器已提示用户")
       })
     } else {
       ElMessage.warning('请检查表单中标红的错误！')
       return false
     }
+  })
+}
+
+// 🌟 逻辑删除：前端发出 DELETE 请求，符合 RESTful 规范
+const handleDelete = (row) => {
+  ElMessageBox.confirm(
+    `您确定要删除用户【${row.name}】吗？`,
+    '系统高危警告',
+    {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '点错了',
+      type: 'warning',
+    }
+  ).then(() => {
+    // 🌟 标准 RESTful：路径后直接跟 ID，动词使用 delete
+    request.delete('/user/' + row.id).then(() => {
+      ElMessage.success('删除成功！')
+      loadData() // 刷新列表，被删除的用户会因为 valid_status = 0 被过滤掉
+    }).catch(() => {
+      console.log("删除请求失败")
+    })
+  }).catch(() => {
+    ElMessage.info('已取消删除操作')
   })
 }
 
@@ -264,7 +288,6 @@ loadData()
 </script>
 
 <style>
-/* 全局基础样式保持原样 */
 html, body, #app { margin: 0; padding: 0; height: 100%; }
 .layout-container { height: 100vh; }
 .header-box { background-color: #fff; border-bottom: 1px solid #e6e6e6; padding: 0 20px; box-shadow: 0 1px 4px rgba(0,21,41,.08); }

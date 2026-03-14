@@ -49,13 +49,22 @@ public class UserController {
             return flag ? Result.success() : Result.error(500, "新增用户失败");
         }
     }
-    @DeleteMapping("/delete/{id}")
-    public Result<Boolean> delete(@PathVariable Integer id){
-         boolean flag =userService.removeById(id);
-         return flag ? Result.success() : Result.error(500,"删除用户失败，可能不存在该用户");
+    @DeleteMapping("/{id}")
+    public Result<Boolean> delete(@PathVariable("id") Integer id){
+         if(id == null){
+             return Result.error(400,"ID不能为空");
+         }
+         User u=new User();
+         u.setId(id);
+         u.setValidStatus(0);
+         boolean flag=userService.updateById(u);
+         return flag ? Result.success() : Result.error(500,"删除失败");
     }
-    @PutMapping("/mod")
+    @PostMapping ("/update")
     public Result<Boolean> modify(@RequestBody User user){
+        if (user.getId() == null) {
+            return Result.error(400, "更新失败，缺少用户ID");
+        }
         boolean flag =userService.updateById(user);
         return flag ? Result.success() : Result.error(500,"更新失败");
     }
@@ -89,10 +98,10 @@ public class UserController {
         // 提取所有的参数
         String keyword = (String) queryParam.getParam().get("keyword");
         String roleId = (String) queryParam.getParam().get("roleId");
-        String sex = (String) queryParam.getParam().get("sex");
+        Integer sex = (Integer) queryParam.getParam().get("sex");
 
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-
+        wrapper.eq(User::getValidStatus, 1);
         // 如果有关键字，就进行模糊匹配
         if (StringUtils.isNotBlank(keyword)) {
             // 当多个条件组合时，带有 OR 的模糊查询必须用 .and(w -> ...) 括起来！
@@ -107,7 +116,7 @@ public class UserController {
         }
 
         // 如果传了性别，也加上精确匹配
-        if (StringUtils.isNotBlank(sex)) {
+        if (sex != null) {
             wrapper.eq(User::getSex, sex);
         }
 

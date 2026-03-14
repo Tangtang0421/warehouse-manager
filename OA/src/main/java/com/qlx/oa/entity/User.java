@@ -62,7 +62,7 @@ public class User implements Serializable {
     private Integer roleId;
 
     /**
-     * 是否有效，Y有效，其他无效
+     * 是否有效，1有效，0无效
      */
-    private String validStatus;
+    private Integer validStatus;
 }
