@@ -125,4 +125,26 @@ public class UserController {
 
         return Result.success(resultPage);
     }
+
+    @PostMapping("/login")
+    public Result<User> login(@RequestBody User user) {
+        if (StringUtils.isBlank(user.getNo()) || StringUtils.isBlank(user.getPassword())) {
+            return Result.error(400, "账号或密码不能为空");
+        }
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getNo, user.getNo());
+        User dbUser = userService.getOne(wrapper);//getOne只能有一个账号
+        if (dbUser == null) {
+            return Result.error(500, "账号或密码错误");
+        }
+        if (dbUser.getValidStatus() == 0) {
+            return Result.error(500, "该账号已注销或被禁用，请联系管理员");
+        }
+        if (!dbUser.getPassword().equals(user.getPassword())) {
+            return Result.error(500, "账号或密码错误");
+        }
+        dbUser.setPassword(null);
+        return Result.success(dbUser);
+
+    }
 }
