@@ -18,7 +18,8 @@ const componentMap = {
   '/': () => import('../views/HomeView.vue'),    // 🌟 现在这里是高颜值个人信息页了
   '/user': () => import('../views/UserView.vue'), // 🌟 这里是你的用户表格页
   '/profile': () => import('../views/ProfileView.vue'),
-  '/admin': () => import('../views/AdminView.vue')
+  '/admin': () => import('../views/AdminView.vue'),
+  '/storage': () => import('../views/StorageView.vue')
 }
 
 let hasAddedRoutes = false

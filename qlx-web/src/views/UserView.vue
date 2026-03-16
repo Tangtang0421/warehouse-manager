@@ -85,13 +85,7 @@
             <el-option label="女" :value="0" />
           </el-select>
         </el-form-item>
-        <el-form-item label="角色" prop="roleId">
-          <el-select v-model="form.roleId" placeholder="请选择角色" style="width: 100%">
-            <el-option label="超级管理员" :value="0" />
-            <el-option label="管理员" :value="1" />
-            <el-option label="普通账号" :value="2" />
-          </el-select>
-        </el-form-item>
+        
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -125,7 +119,8 @@ const loadData = () => {
     pageSize: pageSize.value, 
     param: {
       keyword: keyword.value,
-      sex: sex.value
+      sex: sex.value,
+      roleId: 2
     } 
   }
   request.post('/user/list/page', queryParam).then(res => {
@@ -191,7 +186,7 @@ const rules = {
 }
 
 const handleAdd = () => {
-  form.value = { id: '', no: '', name: '', password: '', phone: '', age: '', sex: null, roleId: null }
+  form.value = { id: '', no: '', name: '', password: '', phone: '', age: '', sex: null, roleId: 2 }
   dialogVisible.value = true 
   if (formRef.value) {
     formRef.value.clearValidate()

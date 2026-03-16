@@ -97,7 +97,7 @@ public class UserController {
 
         // 提取所有的参数
         String keyword = (String) queryParam.getParam().get("keyword");
-        String roleId = (String) queryParam.getParam().get("roleId");
+        Integer roleId = (Integer) queryParam.getParam().get("roleId");
         Integer sex = (Integer) queryParam.getParam().get("sex");
 
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
@@ -111,7 +111,7 @@ public class UserController {
         }
 
         // 如果传了角色 ID，就加上精确等值匹配 (eq)
-        if (StringUtils.isNotBlank(roleId)) {
+        if (roleId!=null) {
             wrapper.eq(User::getRoleId, roleId);
         }
 
