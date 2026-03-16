@@ -1,41 +1,82 @@
 <template>
   <div class="aside-container">
-    
-    <div class="logo">
-      <h2 v-show="!isCollapse">🚀 OA 系统</h2>
-      <h2 v-show="isCollapse">🚀</h2>
+    <div class="aside-logo" :class="{ 'collapse-logo': isCollapse }">
+      <span v-show="!isCollapse">仓储系统</span>
+      <span v-show="isCollapse">WMS</span>
     </div>
-
-    <el-menu
-      active-text-color="#ffd04b"
-      background-color="#304156"
-      text-color="#fff"
-      default-active="1"
-      class="border-none-menu"
-      :collapse="isCollapse"
-      :collapse-transition="false" 
-    >
-      <el-menu-item index="1"><el-icon><House /></el-icon><template #title><span>首页</span></template></el-menu-item>
-      <el-menu-item index="2"><el-icon><Location /></el-icon><template #title><span>导航一</span></template></el-menu-item>
-      <el-menu-item index="3"><el-icon><Document /></el-icon><template #title><span>导航二</span></template></el-menu-item>
-    </el-menu>
     
+    <el-menu
+      :default-active="route.path"
+      class="el-menu-vertical"
+      :collapse="isCollapse"
+      background-color="#304156"
+      text-color="#bfcbd9"
+      active-text-color="#409eff"
+      :collapse-transition="false"
+      router
+    >
+      <el-menu-item v-for="item in menuList" :key="item.id" :index="item.menuComponent">
+        <el-icon><component :is="item.menuIcon" /></el-icon>
+        <template #title>{{ item.menuName }}</template>
+      </el-menu-item>
+    </el-menu>
   </div>
 </template>
 
 <script setup>
-/* eslint-disable no-undef */
-import { House, Location, Document } from '@element-plus/icons-vue'
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 
-// 接收老大传过来的折叠状态
+const route = useRoute()
+const menuList = ref([])
+
+/* global defineProps */
 defineProps({
   isCollapse: Boolean
+})
+
+onMounted(() => {
+  const menusStr = localStorage.getItem('menus')
+  if (menusStr) {
+    menuList.value = JSON.parse(menusStr)
+  }
 })
 </script>
 
 <style scoped>
-/* 这里的样式也完全不用动 */
-.aside-container { background-color: #304156; height: 100%; overflow: hidden;}
-.logo { height: 60px; line-height: 60px; text-align: center; color: #fff; border-bottom: 1px solid #1f2d3d; transition: all 0.3s;}
-.border-none-menu { border-right: none; }
+/* 🌟 核心修复 1：让整个侧边栏容器撑满 100vh 屏幕高度，并统一深色背景 */
+.aside-container {
+  height: 100vh;
+  background-color: #304156; 
+  display: flex;
+  flex-direction: column;
+}
+
+/* 顶部 Logo 样式 */
+.aside-logo {
+  height: 50px;
+  line-height: 50px;
+  text-align: center;
+  color: #fff;
+  font-size: 18px;
+  font-weight: bold;
+  background-color: #2b3643;
+  flex-shrink: 0; /* 防止被下方菜单挤压 */
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* 🌟 核心修复 2：让菜单自动填满下方剩余空间，并去掉右侧丑陋的白边 */
+.el-menu-vertical {
+  flex: 1;
+  border-right: none; 
+}
+
+/* 🌟 核心修复 3：严格控制展开和折叠时的宽度，确保图标完美居中露出 */
+.el-menu-vertical:not(.el-menu--collapse) {
+  width: 200px;
+}
+.el-menu--collapse {
+  width: 64px;
+}
 </style>

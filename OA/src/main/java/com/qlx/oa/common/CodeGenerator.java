@@ -26,9 +26,9 @@ public class CodeGenerator {
         String projectPath = System.getProperty("user.dir");
 
         // 数据库连接配置
-        String url = "jdbc:mysql://localhost:3306/qlx?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai";
+        String url = "jdbc:mysql://localhost:3306/qlx_web?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai";
 
-        FastAutoGenerator.create(url, "root", "12345")
+        FastAutoGenerator.create(url, "root", "mmm12345")
 
                 // 全局配置
                 .globalConfig(builder -> {

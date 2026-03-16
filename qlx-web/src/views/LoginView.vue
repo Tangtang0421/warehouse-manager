@@ -71,16 +71,29 @@ const handleLogin = () => {
     if (valid) {
       loading.value = true // 开启按钮转圈加载状态
       
-      // 🌟 向后端发送 POST 请求，路径定为 /user/login
+      // 🌟 1. 向后端发送 POST 请求验证账号密码
       request.post('/user/login', loginForm.value).then(res => {
-        ElMessage.success('登录成功！欢迎回来')
+        ElMessage.success('登录成功！正在加载系统权限...')
         
-        // 🌟 核心：把后端返回的用户信息（或者 Token）存到浏览器的 localStorage 里
-        // 假设后端返回的数据结构是 Result.success(user对象)
-        localStorage.setItem('user', JSON.stringify(res))
+        // 提取用户信息并存入浏览器保险箱
+        const userData = res.data || res
+        localStorage.setItem('user', JSON.stringify(userData))
         
-        // 跳转到系统主页（咱们刚才写的那个页面）
-        router.push('/') 
+        // 🌟 2. 【核心新增】拿着刚返回的 roleId，去请求专属菜单！
+        // 注意：如果你数据库里角色的字段不叫 roleId，请把这里的 userData.roleId 换成真实的字段名
+        request.get('/menu/list?roleId=' + userData.roleId).then(menuRes => {
+            
+            // 提取菜单列表并存入浏览器
+            const menuList = menuRes.data || menuRes
+            localStorage.setItem('menus', JSON.stringify(menuList))
+            
+            // 🌟 3. 门票和菜单全部就位，安全传送至主页！
+            router.push('/') 
+            
+        }).catch(() => {
+            ElMessage.error('获取用户权限失败，请联系管理员')
+        })
+        
       }).catch(() => {
         // 登录失败，拦截器会自动提示，这里只需要关闭 loading
         console.log("登录拦截，账号或密码错误")
