@@ -19,7 +19,8 @@ const componentMap = {
   '/user': () => import('../views/UserView.vue'), // 🌟 这里是你的用户表格页
   '/profile': () => import('../views/ProfileView.vue'),
   '/admin': () => import('../views/AdminView.vue'),
-  '/storage': () => import('../views/StorageView.vue')
+  '/storage': () => import('../views/StorageView.vue'),
+  '/goodstype': () => import('../views/GoodstypeView.vue')
 }
 
 let hasAddedRoutes = false
