@@ -43,7 +43,7 @@ public class Record implements Serializable {
     /**
      * 操作人id
      */
-    @TableField("adminId")
+    @TableField("admin_id")
     private Integer adminId;
 
     /**
@@ -60,4 +60,7 @@ public class Record implements Serializable {
      * 备注
      */
     private String remark;
+
+    @TableField(exist = false)
+    private Integer actionType;
 }

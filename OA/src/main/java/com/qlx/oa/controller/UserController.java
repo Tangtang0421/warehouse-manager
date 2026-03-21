@@ -65,6 +65,9 @@ public class UserController {
         if (user.getId() == null) {
             return Result.error(400, "更新失败，缺少用户ID");
         }
+        if (user.getPassword() != null && user.getPassword().trim().isEmpty()) {
+            user.setPassword(null);
+        }
         boolean flag =userService.updateById(user);
         return flag ? Result.success() : Result.error(500,"更新失败");
     }

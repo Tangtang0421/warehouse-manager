@@ -21,7 +21,8 @@ const componentMap = {
   '/admin': () => import('../views/AdminView.vue'),
   '/storage': () => import('../views/StorageView.vue'),
   '/goodstype': () => import('../views/GoodstypeView.vue'),
-  '/goods': () => import('../views/GoodsView.vue')
+  '/goods': () => import('../views/GoodsView.vue'),
+  '/record': () => import('../views/RecordView.vue')
 }
 
 let hasAddedRoutes = false

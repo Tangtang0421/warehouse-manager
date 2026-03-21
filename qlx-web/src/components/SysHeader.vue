@@ -40,20 +40,12 @@ defineProps({
 })
 
 const router = useRouter()
-
-// 🌟 1. 动态获取用户名的核心逻辑
 const userName = ref('未知用户')
 
 onMounted(() => {
-  // 从浏览器的保险箱里把刚才存的 user 字符串拿出来
   const userStr = localStorage.getItem('user')
   if (userStr) {
-    // 把它转换回 JSON 对象
     const userObj = JSON.parse(userStr)
-    
-    // 【注意这里】：如果你的后端 login 接口返回的是 Result.success(user)，
-    // 那么真实的数据其实是包在 data 属性里的！所以取 userObj.data.name
-    // 如果没有 data 包裹，就直接取 userObj.name
     if (userObj.data && userObj.data.name) {
       userName.value = userObj.data.name
     } else if (userObj.name) {
@@ -64,17 +56,15 @@ onMounted(() => {
   }
 })
 
-// 🌟 2. 处理下拉菜单的点击事件
 const handleCommand = (command) => {
   if (command === 'logout') {
     logout()
   } else if (command === 'profile') {
-    // 🌟 原来是弹窗，现在改成跳转到个人中心路由
     router.push('/profile') 
   }
 }
 
-// 🌟 3. 退出登录的终极闭环
+// 🌟 3. 退出登录的终极闭环（彻底秒杀白屏 Bug）
 const logout = () => {
   ElMessageBox.confirm(
     '您确定要退出当前系统吗？',
@@ -87,14 +77,19 @@ const logout = () => {
   ).then(() => {
     // 🔪 第一步：撕毁门票（清空所有的缓存数据）
     localStorage.removeItem('user')
-    // 如果你以后还有 token 什么的，都在这里一起 remove 掉
-    // localStorage.removeItem('token')
+    // 🌟 核心修复 1：必须把动态菜单的缓存也一并清空！
+    localStorage.removeItem('menus') 
     
-    // 🚀 第二步：一脚踢回登录页
-    router.push('/login')
-    
-    // 💖 第三步：友好的离别提示
+    // 💖 友好的离别提示
     ElMessage.success('已安全退出系统，期待您的再次使用！')
+
+    // 🚀 第二步：一脚踢回登录页
+    // 🌟 核心修复 2：用 window.location.href 强制刷新浏览器！
+    // 加上 500 毫秒的延迟，是为了让上面那句绿色的 ElMessage 能弹出来亮个相
+    setTimeout(() => {
+      window.location.href = '/login'
+    }, 500)
+    
   }).catch(() => {
     // 点了取消，就假装无事发生
   })
@@ -119,6 +114,6 @@ const logout = () => {
   color: #333;
   font-weight: bold;
   font-size: 16px;
-  outline: none; /* 去除点击时的黑框 */
+  outline: none; 
 }
 </style>

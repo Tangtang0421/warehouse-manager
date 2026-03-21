@@ -45,11 +45,11 @@ import { ElMessage } from 'element-plus'
 // 如果你用了 Vue Router，需要引入 useRouter 来实现跳转
 // import { useRouter } from 'vue-router' 
 import request from '../utils/request.js' 
-import { useRouter } from 'vue-router'
+
 // const router = useRouter()
 const loginFormRef = ref(null)
 const loading = ref(false)
-const router = useRouter()
+
 // 🌟 登录表单数据（前端只负责把这两个发给后端）
 const loginForm = ref({
   no: '',
@@ -88,7 +88,7 @@ const handleLogin = () => {
             localStorage.setItem('menus', JSON.stringify(menuList))
             
             // 🌟 3. 门票和菜单全部就位，安全传送至主页！
-            router.push('/') 
+            window.location.href = '/'
             
         }).catch(() => {
             ElMessage.error('获取用户权限失败，请联系管理员')

@@ -1,6 +1,7 @@
 package com.qlx.oa.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.qlx.oa.common.QueryPageParam;
@@ -14,11 +15,13 @@ import com.qlx.oa.service.IRecordService;
 import com.qlx.oa.service.IUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -43,6 +46,8 @@ public class RecordController {
         String goodsName = (String) queryPageParam.getParam().get("goodsName");
         Object storageObj = queryPageParam.getParam().get("storage");
         Object goodsTypeObj = queryPageParam.getParam().get("goodsType");
+        Integer currentUserId = (Integer) queryPageParam.getParam().get("userId");
+        Integer roleId = (Integer) queryPageParam.getParam().get("roleId");
 
         // 如果前端输入了物品名、仓库、分类，需要去goods表查
         List<Integer> targetGoodsIds = null;
@@ -71,6 +76,12 @@ public class RecordController {
         if (targetGoodsIds != null) {
             recordWrapper.in(Record::getGoods, targetGoodsIds);
         }
+
+        if (roleId != null && roleId == 2 && currentUserId != null) {
+
+            recordWrapper.eq(Record::getUserId, currentUserId);
+        }
+
         // 按照操作时间倒序排列（最新出入库的在最前面）
         recordWrapper.orderByDesc(Record::getCreatetime);
 
@@ -123,6 +134,48 @@ public class RecordController {
         resPage.setRecords(resList);
 
         return Result.success(resPage);
+    }
+
+    @PostMapping("/addRecord")
+    @Transactional(rollbackFor = Exception.class)
+    public Result<?> addRecord(@RequestBody Record record) {
+        Integer actionType = record.getActionType();
+        Integer goodsId = record.getGoods();
+        Integer ccount = record.getCount();
+
+        if (goodsId == null || ccount == null || ccount <= 0 || actionType == null) {
+            return Result.error(400,"参数错误");
+        }
+
+        if (actionType.equals(1)) {
+
+            boolean success = goodsService.update(new LambdaUpdateWrapper<Goods>()
+                    .eq(Goods::getId, goodsId)
+                    .setSql("count = count + " + ccount)
+            );
+            if (!success) {
+                throw new RuntimeException("入库失败，物品可能已被删除");
+            }
+
+        } else if (actionType.equals(2)) {
+
+            boolean success = goodsService.update(new LambdaUpdateWrapper<Goods>()
+                    .eq(Goods::getId, goodsId)
+                    .ge(Goods::getCount, ccount)
+                    .setSql("count = count - " + ccount)
+            );
+            if (!success) {
+                throw new RuntimeException("手慢了！当前库存不足");
+            }
+        } else {
+            return Result.error(400,"非法的操作类型");
+        }
+
+        record.setCreatetime(LocalDateTime.now());
+
+        recordService.save(record);
+
+        return Result.success();
     }
 
 }
