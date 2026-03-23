@@ -3,14 +3,22 @@ package com.qlx.oa.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.qlx.oa.common.QueryPageParam;
+import com.qlx.oa.common.BusinessException;
 import com.qlx.oa.common.Result;
-import com.qlx.oa.entity.User;
+import com.qlx.oa.dto.UserAddDTO;
+import com.qlx.oa.dto.UserLoginDTO;
+import com.qlx.oa.dto.UserPageDTO;
+import com.qlx.oa.dto.UserUpdateDTO;
+import com.qlx.oa.po.User;
 import com.qlx.oa.service.IUserService;
+import com.qlx.oa.vo.UserVO;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * <p>
@@ -27,124 +35,137 @@ public class UserController {
     private IUserService userService;
 
     @GetMapping("/list")
-    public Result<List<User>> findAll(){
-        List<User> userList =userService.list();
-        return Result.success(userList);
+    public Result<List<UserVO>> findAll(){
+        List<User> userList = userService.list();
+        //批量PO转VO
+        List<UserVO> voList = userList.stream().map(user -> {
+            UserVO vo = new UserVO();
+            BeanUtils.copyProperties(user, vo);
+            return vo;
+        }).collect(Collectors.toList());
+        return Result.success(voList);
     }
     @PostMapping("/add")
-    public Result<Boolean> add(@RequestBody User user){
-        String no = user.getNo();
-        if(StringUtils.isBlank(no)){
-            return Result.error(500, "账号不能为空");
-        }
-
+    public Result<Boolean> add(@RequestBody @Validated UserAddDTO userAddDTO){
+        String no = userAddDTO.getNo();
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(User::getNo, no);
         long count = userService.count(wrapper);
 
         if(count > 0){
-            return Result.error(500, "已有用户，账号已被注册");
-        } else {
-            boolean flag = userService.save(user);
-            return flag ? Result.success() : Result.error(500, "新增用户失败");
+            throw new BusinessException(500, "已有用户，账号已被注册");
         }
+        User user = new User();
+        BeanUtils.copyProperties(userAddDTO,user);
+        boolean flag = userService.save(user);
+        if(!flag){
+            throw new BusinessException("新增用户失败");
+            }
+        return Result.success() ;
+
     }
     @DeleteMapping("/{id}")
     public Result<Boolean> delete(@PathVariable("id") Integer id){
          if(id == null){
-             return Result.error(400,"ID不能为空");
+             throw new BusinessException(400,"ID不能为空");
          }
          User u=new User();
          u.setId(id);
          u.setValidStatus(0);
          boolean flag=userService.updateById(u);
-         return flag ? Result.success() : Result.error(500,"删除失败");
+         if(!flag){
+             throw new BusinessException("删除失败");
+         }
+         return Result.success() ;
     }
     @PostMapping ("/update")
-    public Result<Boolean> modify(@RequestBody User user){
-        if (user.getId() == null) {
-            return Result.error(400, "更新失败，缺少用户ID");
+    public Result<Boolean> modify(@RequestBody @Validated UserUpdateDTO userUpdateDTO){
+        if (userUpdateDTO.getId() == null) {
+            throw new BusinessException(400, "更新失败，缺少用户ID");
         }
-        if (user.getPassword() != null && user.getPassword().trim().isEmpty()) {
-            user.setPassword(null);
+        if (userUpdateDTO.getPassword() != null && userUpdateDTO.getPassword().trim().isEmpty()) {
+            userUpdateDTO.setPassword(null);
         }
+        User user = new User();
+        BeanUtils.copyProperties(userUpdateDTO,user);
         boolean flag =userService.updateById(user);
-        return flag ? Result.success() : Result.error(500,"更新失败");
+        if(!flag){
+            throw new BusinessException("更新失败");
+        }
+        return Result.success() ;
     }
     @GetMapping("/search")
-    public Result<List<User>> search(@RequestParam(required = false) String keyword) {
+    public Result<List<UserVO>> search(@RequestParam(required = false) String keyword) {
 
-        //Lambda 包装器
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
 
-        // 只有当关键字不是空的时候，才拼接查询条件
         if (StringUtils.isNotBlank(keyword)) {
             wrapper.like(User::getName, keyword)
                     .or()
                     .like(User::getNo, keyword);
         }
 
-        // 把包装器交给 Service 执行查询
         List<User> list = userService.list(wrapper);
+        List<UserVO> voList = list.stream().map(user -> {
+            UserVO vo = new UserVO();
+            BeanUtils.copyProperties(user,vo);
+            return vo;
+        }).collect(Collectors.toList());
 
-        return Result.success(list);
+        return Result.success(voList);
     }
-    /**
-     * 使用 Wrapper 的单表分页
-     * 因为接收的是复杂对象 QueryPageParam，所以使用 @PostMapping 和 @RequestBody 接收 JSON 格式的请求
-     */
-    @PostMapping("/list/page")
-    public Result<Page<User>> pageList(@RequestBody QueryPageParam queryParam) {
-        //确定返回对象的页数，以及页大小
-        Page<User> page = new Page<>(queryParam.getPageNum(), queryParam.getPageSize());
 
-        // 提取所有的参数
-        String keyword = (String) queryParam.getParam().get("keyword");
-        Integer roleId = (Integer) queryParam.getParam().get("roleId");
-        Integer sex = (Integer) queryParam.getParam().get("sex");
+    @PostMapping("/list/page")
+    public Result<Page<UserVO>> pageList(@RequestBody @Validated UserPageDTO userPageDTO) {
+        //确定返回对象的页数，以及页大小
+        Page<User> page = new Page<>(userPageDTO.getPageNum(), userPageDTO.getPageSize());
 
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(User::getValidStatus, 1);
-        // 如果有关键字，就进行模糊匹配
-        if (StringUtils.isNotBlank(keyword)) {
-            // 当多个条件组合时，带有 OR 的模糊查询必须用 .and(w -> ...) 括起来！
-            // 否则 SQL 会变成：WHERE name LIKE ? OR no LIKE ? AND roleId = ?
-            // 加上括号后 SQL 是：WHERE (name LIKE ? OR no LIKE ?) AND roleId = ?
-            wrapper.and(w -> w.like(User::getName, keyword).or().like(User::getNo, keyword));
+
+        if (StringUtils.isNotBlank(userPageDTO.getKeyword())) {
+
+            wrapper.and(w -> w.like(User::getName, userPageDTO.getKeyword()).or().like(User::getNo, userPageDTO.getKeyword()));
         }
 
-        // 如果传了角色 ID，就加上精确等值匹配 (eq)
-        if (roleId!=null) {
-            wrapper.eq(User::getRoleId, roleId);
+        // 如果传了角色 ID 且不为 0，就加上精确等值匹配 (eq)
+        if (userPageDTO.getRoleId() != null && userPageDTO.getRoleId() != 0) {
+            wrapper.eq(User::getRoleId, userPageDTO.getRoleId());
         }
 
         // 如果传了性别，也加上精确匹配
-        if (sex != null) {
-            wrapper.eq(User::getSex, sex);
+        if (userPageDTO.getSex() != null) {
+            wrapper.eq(User::getSex, userPageDTO.getSex());
         }
 
         // 执行查询
-        Page<User> resultPage = userService.page(page, wrapper);//wrapper类似SQL语法生成器
+        Page<User> resultPage = userService.page(page, wrapper);
+        Page<UserVO> voPage = new Page<>(resultPage.getCurrent(), resultPage.getSize(), resultPage.getTotal());
+        List<UserVO> voList = resultPage.getRecords().stream().map(user -> {
+            UserVO vo = new UserVO();
+            BeanUtils.copyProperties(user, vo);
+            return vo;
+        }).collect(Collectors.toList());
 
-        return Result.success(resultPage);
+        voPage.setRecords(voList);
+        return Result.success(voPage);
+
     }
 
     @PostMapping("/login")
-    public Result<User> login(@RequestBody User user) {
-        if (StringUtils.isBlank(user.getNo()) || StringUtils.isBlank(user.getPassword())) {
-            return Result.error(400, "账号或密码不能为空");
-        }
+    public Result<User> login(@RequestBody @Validated UserLoginDTO userLoginDTO) {
+
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getNo, user.getNo());
+        wrapper.eq(User::getNo, userLoginDTO.getNo());
         User dbUser = userService.getOne(wrapper);//getOne只能有一个账号
         if (dbUser == null) {
-            return Result.error(500, "账号或密码错误");
+            throw new BusinessException("账号或密码错误");
         }
         if (dbUser.getValidStatus() == 0) {
-            return Result.error(500, "该账号已注销或被禁用，请联系管理员");
+            throw new BusinessException("该账号已注销或被禁用，请联系管理员");
         }
-        if (!dbUser.getPassword().equals(user.getPassword())) {
-            return Result.error(500, "账号或密码错误");
+        if (!dbUser.getPassword().equals(userLoginDTO.getPassword())) {
+            throw new BusinessException("账号或密码错误");
         }
         dbUser.setPassword(null);
         return Result.success(dbUser);

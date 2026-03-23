@@ -1,6 +1,6 @@
 package com.qlx.oa.mapper;
 
-import com.qlx.oa.entity.Goods;
+import com.qlx.oa.po.Goods;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 

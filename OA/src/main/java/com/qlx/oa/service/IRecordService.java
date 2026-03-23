@@ -1,6 +1,6 @@
 package com.qlx.oa.service;
 
-import com.qlx.oa.entity.Record;
+import com.qlx.oa.po.Record;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 /**

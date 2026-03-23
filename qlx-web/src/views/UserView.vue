@@ -117,11 +117,9 @@ const loadData = () => {
   const queryParam = {
     pageNum: pageNum.value,  
     pageSize: pageSize.value, 
-    param: {
-      keyword: keyword.value,
-      sex: sex.value,
-      roleId: 2
-    } 
+    keyword: keyword.value,
+    sex: sex.value,
+    roleId: 2
   }
   request.post('/user/list/page', queryParam).then(res => {
     tableData.value = res.records || [] 

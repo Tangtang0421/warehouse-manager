@@ -1,6 +1,6 @@
 package com.qlx.oa.service.impl;
 
-import com.qlx.oa.entity.Menu;
+import com.qlx.oa.po.Menu;
 import com.qlx.oa.mapper.MenuMapper;
 import com.qlx.oa.service.IMenuService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;

@@ -3,14 +3,21 @@ package com.qlx.oa.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.qlx.oa.common.QueryPageParam;
+import com.qlx.oa.common.BusinessException;
 import com.qlx.oa.common.Result;
-import com.qlx.oa.entity.Goodstype;
+import com.qlx.oa.dto.GoodstypeAddDTO;
+import com.qlx.oa.dto.GoodstypePageDTO;
+import com.qlx.oa.dto.GoodstypeUpdateDTO;
+import com.qlx.oa.po.Goodstype;
 import com.qlx.oa.service.IGoodstypeService;
+import com.qlx.oa.vo.GoodstypeVO;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * <p>
@@ -28,59 +35,76 @@ public class GoodstypeController {
     private IGoodstypeService goodstypeService;
 
     @GetMapping("/list")
-    public Result<List<Goodstype>> list(){
-        return Result.success(goodstypeService.list());
+    public Result<List<GoodstypeVO>> list(){
+        List<Goodstype> list = goodstypeService.list();
+        List<GoodstypeVO> VOlist = list.stream().map(goodstype -> {
+            GoodstypeVO goodstypeVO = new GoodstypeVO();
+            BeanUtils.copyProperties(goodstype,goodstypeVO);
+            return goodstypeVO;
+        }).collect(Collectors.toList());
+        return Result.success(VOlist);
     }
 
     @DeleteMapping("/{id}")
     public Result<Boolean> delete(@PathVariable Integer id){
         boolean flag = goodstypeService.removeById(id);
-        return flag ? Result.success() : Result.error(400, "物品分类删除失败");
+        if(!flag){
+            throw new BusinessException(400,"物品分类删除失败");
+        }
+        return Result.success();
     }
 
     @PostMapping("/add")
-    public Result<Boolean> add(@RequestBody Goodstype goodstype){
-        String name = goodstype.getName();
-        if(StringUtils.isBlank(name)){
-            return Result.error(400, "分类名称不可为空");
-        }
+    public Result<Boolean> add(@RequestBody @Validated GoodstypeAddDTO goodstypeAddDTO){
+
         LambdaQueryWrapper<Goodstype> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Goodstype::getName, name);
+        wrapper.eq(Goodstype::getName, goodstypeAddDTO.getName());
         if(goodstypeService.count(wrapper) > 0){
-            return Result.error(400, "该物品分类已存在，请勿重复添加");
+            throw new BusinessException(400, "该物品分类已存在，请勿重复添加");
         }
+        Goodstype goodstype = new Goodstype();
+        BeanUtils.copyProperties(goodstypeAddDTO,goodstype);
         boolean flag = goodstypeService.save(goodstype);
-        return flag ? Result.success() : Result.error(500, "物品分类添加失败");
+        if(!flag){
+            throw new BusinessException("物品分类添加失败");
+        }
+        return Result.success() ;
     }
 
     @PostMapping("/update")
-    public Result<Boolean> update(@RequestBody Goodstype goodstype){
-        if(goodstype.getId() == null){
-            return Result.error(400, "物品分类ID不可为空");
+    public Result<Boolean> update(@RequestBody @Validated GoodstypeUpdateDTO goodstypeUpdateDTO){
+        if(goodstypeUpdateDTO.getId() == null){
+            throw  new BusinessException(400, "物品分类ID不可为空");
         }
-        if(StringUtils.isBlank(goodstype.getName())){
-            return Result.error(400, "分类名称不可为空");
-        }
-
+        Goodstype goodstype = new Goodstype();
+        BeanUtils.copyProperties(goodstypeUpdateDTO,goodstype);
         boolean flag = goodstypeService.updateById(goodstype);
-        return flag ? Result.success() : Result.error(500, "物品分类修改失败");
+        if(!flag){
+            throw new BusinessException("物品分类修改失败");
+        }
+        return Result.success();
     }
 
     @PostMapping("/list/page")
-    public Result<Page<Goodstype>> listPage(@RequestBody QueryPageParam queryPageParam){
-        Page<Goodstype> page = new Page<>(queryPageParam.getPageNum(), queryPageParam.getPageSize());
-        String keyword = (String) queryPageParam.getParam().get("keyword");
-
+    public Result<Page<GoodstypeVO>> listPage(@RequestBody @Validated GoodstypePageDTO goodstypePageDTO){
+        Page<Goodstype> page = new Page<>(goodstypePageDTO.getPageNum(), goodstypePageDTO.getPageSize());
         LambdaQueryWrapper<Goodstype> wrapper = new LambdaQueryWrapper<>();
 
-        if(StringUtils.isNotBlank(keyword)){
+        if(StringUtils.isNotBlank(goodstypePageDTO.getKeyword())){
 
-            wrapper.and(w -> w.like(Goodstype::getName, keyword)
+            wrapper.and(w -> w.like(Goodstype::getName, goodstypePageDTO.getKeyword())
                     .or()
-                    .like(Goodstype::getRemark, keyword));
+                    .like(Goodstype::getRemark, goodstypePageDTO.getKeyword()));
         }
 
         goodstypeService.page(page, wrapper);
-        return Result.success(page);
+        Page<GoodstypeVO> VOpage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        List<GoodstypeVO> list= page.getRecords().stream().map(goodstype -> {
+            GoodstypeVO goodstypeVO = new GoodstypeVO();
+            BeanUtils.copyProperties(goodstype,goodstypeVO);
+            return goodstypeVO;
+        }).collect(Collectors.toList());
+        VOpage.setRecords(list);
+        return Result.success(VOpage);
     }
 }

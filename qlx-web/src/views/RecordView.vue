@@ -102,20 +102,16 @@ const loadData = () => {
   const queryParam = {
     pageNum: pageNum.value, 
     pageSize: pageSize.value, 
-    param: { 
-      goodsName: searchGoodsName.value, 
-      storage: searchStorage.value, 
-      goodsType: searchGoodsType.value,
-      
-      // 🌟 新增：把当前用户的 ID 和 角色 ID 传给后端
-      userId: currentUser.id,
-      roleId: currentUser.roleId
-    }
+    goodsName: searchGoodsName.value, 
+    storage: searchStorage.value, 
+    goodsType: searchGoodsType.value,
+    userId: currentUser.id,
+    roleId: currentUser.roleId
   }
   
   request.post('/record/list/page', queryParam).then(res => {
-    tableData.value = res.data?.records || res.records || [] 
-    total.value = res.data?.total || res.total || 0        
+    tableData.value = res.records || [] 
+    total.value = res.total || 0        
   }).catch(() => {
     ElMessage.error('获取流水记录失败！')
   })

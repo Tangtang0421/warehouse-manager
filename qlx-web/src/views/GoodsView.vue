@@ -196,7 +196,9 @@ const loadData = () => {
   const queryParam = {
     pageNum: pageNum.value, 
     pageSize: pageSize.value, 
-    param: { keyword: searchKeyword.value, storage: searchStorage.value, goodsType: searchGoodsType.value }
+    keyword: searchKeyword.value, 
+    storage: searchStorage.value, 
+    goodsType: searchGoodsType.value
   }
   request.post('/goods/list/page', queryParam).then(res => {
     tableData.value = res.records || [] 

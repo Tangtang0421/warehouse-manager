@@ -87,7 +87,7 @@ const fetchSystemStats = () => {
   request.post('/user/list/page', {
     pageNum: 1,
     pageSize: 1, // 我们只需要总数，所以每页查1条就行，节省流量
-    param: {}    // 传空对象，意味着后端会查询所有角色，从而拿到真正的 Total
+    roleId: 0    // 传0表示查询所有角色的用户
   }).then(res => {
     // res 里的 total 就是数据库 user 表的真实行数
     totalUsers.value = res.total || 0

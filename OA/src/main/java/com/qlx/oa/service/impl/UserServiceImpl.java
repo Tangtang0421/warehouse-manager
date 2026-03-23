@@ -1,6 +1,6 @@
 package com.qlx.oa.service.impl;
 
-import com.qlx.oa.entity.User;
+import com.qlx.oa.po.User;
 import com.qlx.oa.mapper.UserMapper;
 import com.qlx.oa.service.IUserService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;

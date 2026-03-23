@@ -3,14 +3,21 @@ package com.qlx.oa.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.qlx.oa.common.QueryPageParam;
+import com.qlx.oa.common.BusinessException;
 import com.qlx.oa.common.Result;
-import com.qlx.oa.entity.Goods;
+import com.qlx.oa.dto.GoodsAddDTO;
+import com.qlx.oa.dto.GoodsPageDTO;
+import com.qlx.oa.dto.GoodsUpdateDTO;
+import com.qlx.oa.po.Goods;
 import com.qlx.oa.service.IGoodsService;
+import com.qlx.oa.vo.GoodsVO;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * <p>
@@ -28,70 +35,84 @@ public class GoodsController {
     private IGoodsService goodsService;
 
     @GetMapping("/list")
-    public Result<List<Goods>> listGoods(){
-        return Result.success(goodsService.list());
+    public Result<List<GoodsVO>> listGoods(){
+        List<Goods> list = goodsService.list();
+        List<GoodsVO> goodsVOList = list.stream().map(goods -> {
+            GoodsVO goodsVO = new GoodsVO();
+            BeanUtils.copyProperties(goods, goodsVO);
+            return goodsVO;
+        }).collect(Collectors.toList());
+        return Result.success(goodsVOList);
     }
 
     @DeleteMapping("/{id}")
     public Result<Boolean> deleteGoods(@PathVariable Integer id){
         boolean flag = goodsService.removeById(id);
-        return flag ? Result.success() : Result.error(500, "删除物品失败");
+        if(!flag){
+            throw new BusinessException(400,"物品删除失败");
+        }
+        return Result.success();
     }
 
     @PostMapping("/add")
-    public Result<Boolean> addGoods(@RequestBody Goods goods){
-        String name = goods.getName();
-        Integer storageId = goods.getStorage();
-        Integer goodsTypeId = goods.getGoodsType();
-        Integer count = goods.getCount();
-
-        if(StringUtils.isBlank(name) || storageId == null || goodsTypeId == null || count == null){
-            return Result.error(400, "物品核心信息（名称、仓库、分类、数量）不可为空");
-        }
+    public Result<Boolean> addGoods(@RequestBody @Validated GoodsAddDTO  goodsAddDTO){
 
         LambdaQueryWrapper<Goods> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Goods::getName, name).eq(Goods::getStorage, storageId);
+        wrapper.eq(Goods::getName, goodsAddDTO.getName()).eq(Goods::getStorage, goodsAddDTO.getStorage());
 
         if(goodsService.count(wrapper) > 0){
-            return Result.error(400, "该仓库中已存在同名物品");
+            throw new BusinessException(400, "该仓库中已存在同名物品");
         }
-
+        Goods goods = new Goods();
+        BeanUtils.copyProperties(goodsAddDTO,goods);
         boolean flag = goodsService.save(goods);
-        return flag ? Result.success() : Result.error(500, "物品添加失败");
+        if(!flag){
+            throw new BusinessException(500,"物品添加失败");
+        }
+        return Result.success();
     }
 
     @PostMapping("/update")
-    public Result<Boolean> updateGoods(@RequestBody Goods goods){
-        if(goods.getId() == null){
-            return Result.error(400, "该物品不存在");
+    public Result<Boolean> updateGoods(@RequestBody @Validated GoodsUpdateDTO goodsUpdateDTO){
+        if(goodsUpdateDTO.getId() == null){
+            throw new BusinessException(400, "该物品不存在");
         }
+        Goods goods = new Goods();
+        BeanUtils.copyProperties(goodsUpdateDTO,goods);
         boolean flag = goodsService.updateById(goods);
-        return flag ? Result.success() : Result.error(500, "物品修改失败");
+        if(!flag){
+            throw new BusinessException(500,"物品修改失败");
+        }
+        return Result.success() ;
     }
 
     @PostMapping("/list/page")
-    public Result<Page<Goods>> listPage(@RequestBody QueryPageParam param){
-        Page<Goods> page = new Page<>(param.getPageNum(), param.getPageSize());
+    public Result<Page<GoodsVO>> listPage(@RequestBody @Validated GoodsPageDTO goodsPageDTO){
+        Page<Goods> page = new Page<>(goodsPageDTO.getPageNum(), goodsPageDTO.getPageSize());
         LambdaQueryWrapper<Goods> wrapper = new LambdaQueryWrapper<>();
 
-        String keyword = (String) param.getParam().get("keyword");
-        Object storageObj = param.getParam().get("storage");
-        Object goodsTypeObj = param.getParam().get("goodsType");
 
-        if(StringUtils.isNotBlank(keyword)){
-            wrapper.and(w -> w.like(Goods::getName, keyword).or().like(Goods::getRemark, keyword));
+        if(StringUtils.isNotBlank(goodsPageDTO.getKeyword())){
+            wrapper.and(w -> w.like(Goods::getName, goodsPageDTO.getKeyword()).or().like(Goods::getRemark, goodsPageDTO.getKeyword()));
         }
 
 
-        if(storageObj != null && StringUtils.isNotBlank(storageObj.toString())){
-            wrapper.eq(Goods::getStorage, storageObj);
+        if(goodsPageDTO.getStorage() != null && StringUtils.isNotBlank(goodsPageDTO.getStorage().toString())){
+            wrapper.eq(Goods::getStorage, goodsPageDTO.getStorage());
         }
 
-        if(goodsTypeObj != null && StringUtils.isNotBlank(goodsTypeObj.toString())){
-            wrapper.eq(Goods::getGoodsType, goodsTypeObj);
+        if(goodsPageDTO.getGoodsType() != null && StringUtils.isNotBlank(goodsPageDTO.getGoodsType().toString())){
+            wrapper.eq(Goods::getGoodsType, goodsPageDTO.getGoodsType());
         }
 
         goodsService.page(page, wrapper);
-        return Result.success(page);
+        List<GoodsVO>list =page.getRecords().stream().map(goods -> {
+            GoodsVO goodsVO = new GoodsVO();
+            BeanUtils.copyProperties(goods,goodsVO);
+            return goodsVO;
+        }).collect(Collectors.toList());
+        Page<GoodsVO> goodsVOPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        goodsVOPage.setRecords(list);
+        return Result.success(goodsVOPage);
     }
 }

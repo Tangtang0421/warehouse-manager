@@ -4,18 +4,21 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.qlx.oa.common.QueryPageParam;
+import com.qlx.oa.common.BusinessException;
 import com.qlx.oa.common.Result;
-import com.qlx.oa.entity.Goods;
-import com.qlx.oa.entity.Record;
-import com.qlx.oa.entity.RecordRes;
-import com.qlx.oa.entity.User;
+import com.qlx.oa.dto.RecordAddDTO;
+import com.qlx.oa.dto.RecordPageDTO;
+import com.qlx.oa.po.Goods;
+import com.qlx.oa.po.Record;
+import com.qlx.oa.po.User;
 import com.qlx.oa.service.IGoodsService;
 import com.qlx.oa.service.IRecordService;
 import com.qlx.oa.service.IUserService;
+import com.qlx.oa.vo.RecordResVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,23 +45,23 @@ public class RecordController {
     private final IGoodsService goodsService;
 
     @PostMapping("/list/page")
-    public Result<Page<RecordRes>> listPage(@RequestBody QueryPageParam queryPageParam) {
-        String goodsName = (String) queryPageParam.getParam().get("goodsName");
-        Object storageObj = queryPageParam.getParam().get("storage");
-        Object goodsTypeObj = queryPageParam.getParam().get("goodsType");
-        Integer currentUserId = (Integer) queryPageParam.getParam().get("userId");
-        Integer roleId = (Integer) queryPageParam.getParam().get("roleId");
+    public Result<Page<RecordResVO>> listPage(@RequestBody @Validated RecordPageDTO recordPageDTO) {
+        String goodsName = recordPageDTO.getGoodsName();
+        Integer storage = recordPageDTO.getStorage();
+        Integer goodsType = recordPageDTO.getGoodsType();
+        Integer currentUserId = recordPageDTO.getUserId();
+        Integer roleId = recordPageDTO.getRoleId();
 
         // 如果前端输入了物品名、仓库、分类，需要去goods表查
         List<Integer> targetGoodsIds = null;
         if (StringUtils.isNotBlank(goodsName) ||
-                (storageObj != null && StringUtils.isNotBlank(storageObj.toString())) ||
-                (goodsTypeObj != null && StringUtils.isNotBlank(goodsTypeObj.toString()))) {
+                (storage != null && StringUtils.isNotBlank(storage.toString())) ||
+                (goodsType != null && StringUtils.isNotBlank(goodsType.toString()))) {
 
             LambdaQueryWrapper<Goods> goodsWrapper = new LambdaQueryWrapper<>();
             if (StringUtils.isNotBlank(goodsName)) goodsWrapper.like(Goods::getName, goodsName);
-            if (storageObj != null && StringUtils.isNotBlank(storageObj.toString())) goodsWrapper.eq(Goods::getStorage, storageObj);
-            if (goodsTypeObj != null && StringUtils.isNotBlank(goodsTypeObj.toString())) goodsWrapper.eq(Goods::getGoodsType, goodsTypeObj);
+            if (storage != null && StringUtils.isNotBlank(storage.toString())) goodsWrapper.eq(Goods::getStorage, storage);
+            if (goodsType != null && StringUtils.isNotBlank(goodsType.toString())) goodsWrapper.eq(Goods::getGoodsType, goodsType);
 
             List<Goods> matchedGoods = goodsService.list(goodsWrapper);
             if (matchedGoods.isEmpty()) {
@@ -70,7 +73,7 @@ public class RecordController {
 
         // 单表极速查询 Record 表
 
-        Page<Record> page = new Page<>(queryPageParam.getPageNum(), queryPageParam.getPageSize());
+        Page<Record> page = new Page<>(recordPageDTO.getPageNum(), recordPageDTO.getPageSize());
         LambdaQueryWrapper<Record> recordWrapper = new LambdaQueryWrapper<>();
 
         if (targetGoodsIds != null) {
@@ -108,8 +111,8 @@ public class RecordController {
                 userService.listByIds(allPeopleIds).stream().collect(Collectors.toMap(User::getId, u -> u));
 
         // 遍历拼接组装最终的 DTO
-        List<RecordRes> resList = records.stream().map(r -> {
-            RecordRes res = new RecordRes();
+        List<RecordResVO> resList = records.stream().map(r -> {
+            RecordResVO res = new RecordResVO();
             // 把 Record 里的基础属性拷贝给 res
             BeanUtils.copyProperties(r, res);
             // 组装物品信息
@@ -130,7 +133,7 @@ public class RecordController {
         }).collect(Collectors.toList());
 
 
-        Page<RecordRes> resPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        Page<RecordResVO> resPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         resPage.setRecords(resList);
 
         return Result.success(resPage);
@@ -138,13 +141,15 @@ public class RecordController {
 
     @PostMapping("/addRecord")
     @Transactional(rollbackFor = Exception.class)
-    public Result<?> addRecord(@RequestBody Record record) {
-        Integer actionType = record.getActionType();
-        Integer goodsId = record.getGoods();
-        Integer ccount = record.getCount();
+    public Result<?> addRecord(@RequestBody @Validated RecordAddDTO recordAddDTO) {
+        Record record = new Record();
+        BeanUtils.copyProperties(recordAddDTO, record);
+        Integer actionType = recordAddDTO.getActionType();
+        Integer goodsId = recordAddDTO.getGoods();
+        Integer ccount = recordAddDTO.getCount();
 
-        if (goodsId == null || ccount == null || ccount <= 0 || actionType == null) {
-            return Result.error(400,"参数错误");
+        if (goodsId == null ) {
+            throw new BusinessException(400,"参数错误");
         }
 
         if (actionType.equals(1)) {
@@ -154,7 +159,7 @@ public class RecordController {
                     .setSql("count = count + " + ccount)
             );
             if (!success) {
-                throw new RuntimeException("入库失败，物品可能已被删除");
+                throw new BusinessException(400,"入库失败，物品可能已被删除");
             }
 
         } else if (actionType.equals(2)) {
@@ -165,10 +170,10 @@ public class RecordController {
                     .setSql("count = count - " + ccount)
             );
             if (!success) {
-                throw new RuntimeException("手慢了！当前库存不足");
+                throw new BusinessException(400,"手慢了！当前库存不足");
             }
         } else {
-            return Result.error(400,"非法的操作类型");
+            throw new BusinessException(400,"非法的操作类型");
         }
 
         record.setCreatetime(LocalDateTime.now());

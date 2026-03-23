@@ -89,9 +89,7 @@ const loadData = () => {
   const queryParam = {
     pageNum: pageNum.value,
     pageSize: pageSize.value,
-    param: {
-      keyword: keyword.value
-    }
+    keyword: keyword.value
   }
   // 注意这里改成了 POST 请求，路径也改成了 /list/page
   request.post('/storage/list/page', queryParam).then(res => {

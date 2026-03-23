@@ -110,11 +110,9 @@ const loadData = () => {
   const queryParam = {
     pageNum: pageNum.value,  
     pageSize: pageSize.value, 
-    param: {
-      keyword: keyword.value,
-      sex: sex.value,
-      roleId: 1 // 🌟 核心：这里强行传 1，向后端索要管理员数据
-    } 
+    keyword: keyword.value,
+    sex: sex.value,
+    roleId: 1 // 🌟 核心：这里强行传 1，向后端索要管理员数据
   }
   request.post('/user/list/page', queryParam).then(res => {
     tableData.value = res.records || [] 

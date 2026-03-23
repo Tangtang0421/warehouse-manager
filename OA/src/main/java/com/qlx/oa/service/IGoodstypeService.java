@@ -1,6 +1,6 @@
 package com.qlx.oa.service;
 
-import com.qlx.oa.entity.Goodstype;
+import com.qlx.oa.po.Goodstype;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 /**

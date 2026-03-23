@@ -1,7 +1,7 @@
 package com.qlx.oa.controller;
 
 import com.qlx.oa.common.Result;
-import com.qlx.oa.entity.Menu;
+import com.qlx.oa.po.Menu;
 import com.qlx.oa.service.IMenuService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;

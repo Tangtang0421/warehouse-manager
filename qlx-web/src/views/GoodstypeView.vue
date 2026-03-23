@@ -89,7 +89,7 @@ const loadData = () => {
   const queryParam = {
     pageNum: pageNum.value,
     pageSize: pageSize.value,
-    param: { keyword: keyword.value }
+    keyword: keyword.value
   }
   // 🌟 调用物品分类的分页接口
   request.post('/goodstype/list/page', queryParam).then(res => {
