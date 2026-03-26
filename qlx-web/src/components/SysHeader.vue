@@ -32,6 +32,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, Fold, Expand } from '@element-plus/icons-vue'
+import request from '@/utils/request'
 
 /* global defineProps */
 
@@ -64,7 +65,7 @@ const handleCommand = (command) => {
   }
 }
 
-// 🌟 3. 退出登录的终极闭环（彻底秒杀白屏 Bug）
+// 🌟 退出登录功能
 const logout = () => {
   ElMessageBox.confirm(
     '您确定要退出当前系统吗？',
@@ -74,22 +75,34 @@ const logout = () => {
       cancelButtonText: '再逛逛',
       type: 'warning',
     }
-  ).then(() => {
-    // 🔪 第一步：撕毁门票（清空所有的缓存数据）
-    localStorage.removeItem('user')
-    // 🌟 核心修复 1：必须把动态菜单的缓存也一并清空！
-    localStorage.removeItem('menus') 
-    
-    // 💖 友好的离别提示
-    ElMessage.success('已安全退出系统，期待您的再次使用！')
-
-    // 🚀 第二步：一脚踢回登录页
-    // 🌟 核心修复 2：用 window.location.href 强制刷新浏览器！
-    // 加上 500 毫秒的延迟，是为了让上面那句绿色的 ElMessage 能弹出来亮个相
-    setTimeout(() => {
-      window.location.href = '/login'
-    }, 500)
-    
+  ).then(async () => {
+    try {
+      // 调用后端退出接口
+      await request.post('/user/logout')
+      
+      // 清除本地存储的用户信息和token
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      localStorage.removeItem('menus')
+      
+      // 友好提示
+      ElMessage.success('已安全退出系统，期待您的再次使用！')
+      
+      // 跳转到登录页
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 500)
+    } catch (error) {
+      console.error('退出失败:', error)
+      // 即使后端调用失败，也要清除本地状态
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      localStorage.removeItem('menus')
+      ElMessage.success('已退出系统')
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 500)
+    }
   }).catch(() => {
     // 点了取消，就假装无事发生
   })

@@ -12,7 +12,13 @@ const request = axios.create({
 // 请求拦截器
 request.interceptors.request.use(config => {
     config.headers['Content-Type'] = 'application/json;charset=utf-8';
-    // 💡 以后如果你做了登录功能，用户的 Token 就会在这里统一塞进请求头里发送给后端
+    
+    // 添加token到请求头
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers['Authorization'] = 'Bearer ' + token;
+    }
+    
     return config
 }, error => {
     return Promise.reject(error)
@@ -36,6 +42,18 @@ request.interceptors.response.use(
         }
     },
     error => {
+        // 处理401未授权错误
+        if (error.response && error.response.status === 401) {
+            ElMessage.error('登录已过期，请重新登录');
+            // 清除本地存储的token和用户信息
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            localStorage.removeItem('menus');
+            // 跳转到登录页
+            window.location.href = '/login';
+            return Promise.reject(error);
+        }
+        
         console.error('网络请求错误:', error)
         ElMessage.error('网络连接失败，请检查后端服务是否启动！')
         return Promise.reject(error)

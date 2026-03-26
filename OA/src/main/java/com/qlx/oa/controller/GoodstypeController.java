@@ -13,6 +13,8 @@ import com.qlx.oa.service.IGoodstypeService;
 import com.qlx.oa.vo.GoodstypeVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,6 +37,7 @@ public class GoodstypeController {
     private IGoodstypeService goodstypeService;
 
     @GetMapping("/list")
+    @Cacheable(value = "wms:goodstype", key = "'list'")
     public Result<List<GoodstypeVO>> list(){
         List<Goodstype> list = goodstypeService.list();
         List<GoodstypeVO> VOlist = list.stream().map(goodstype -> {
@@ -46,6 +49,7 @@ public class GoodstypeController {
     }
 
     @DeleteMapping("/{id}")
+    @CacheEvict(value = "wms:goodstype", key = "'list'")
     public Result<Boolean> delete(@PathVariable Integer id){
         boolean flag = goodstypeService.removeById(id);
         if(!flag){
@@ -55,6 +59,7 @@ public class GoodstypeController {
     }
 
     @PostMapping("/add")
+    @CacheEvict(value = "wms:goodstype", key = "'list'")
     public Result<Boolean> add(@RequestBody @Validated GoodstypeAddDTO goodstypeAddDTO){
 
         LambdaQueryWrapper<Goodstype> wrapper = new LambdaQueryWrapper<>();
@@ -72,6 +77,7 @@ public class GoodstypeController {
     }
 
     @PostMapping("/update")
+    @CacheEvict(value = "wms:goodstype", key = "'list'")
     public Result<Boolean> update(@RequestBody @Validated GoodstypeUpdateDTO goodstypeUpdateDTO){
         if(goodstypeUpdateDTO.getId() == null){
             throw  new BusinessException(400, "物品分类ID不可为空");

@@ -4,6 +4,7 @@ import com.qlx.oa.common.Result;
 import com.qlx.oa.po.Menu;
 import com.qlx.oa.service.IMenuService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,10 +22,12 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/menu")
+
 public class MenuController {
     @Autowired
     private IMenuService menuService;
     @GetMapping("/list")
+    @Cacheable(value = "wms:menu", key = "#roleId")
     public Result<List<Menu>> getMenuList(@RequestParam String roleId){
         List<Menu> list = menuService.lambdaQuery().like(Menu::getMenuRight,roleId).list();
         return Result.success(list);

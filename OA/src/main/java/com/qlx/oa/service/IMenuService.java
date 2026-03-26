@@ -1,7 +1,9 @@
 package com.qlx.oa.service;
 
-import com.qlx.oa.po.Menu;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.qlx.oa.po.Menu;
+
+import java.util.List;
 
 /**
  * <p>
@@ -12,5 +14,6 @@ import com.baomidou.mybatisplus.extension.service.IService;
  * @since 2026-03-16
  */
 public interface IMenuService extends IService<Menu> {
+    List<Menu> getMenusByRoleId(Integer roleId);
 
 }

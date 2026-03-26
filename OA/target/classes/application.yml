@@ -8,3 +8,18 @@ spring:
     url: jdbc:mysql://localhost:3306/qlx_web?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
     username: root
     password: mmm12345
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: 3000ms
+
+jwt:
+  secret: qlx-oa-warehouse-management-system-super-secret-key-2026
+  expiration: 7200000

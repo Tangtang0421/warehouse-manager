@@ -13,6 +13,8 @@ import com.qlx.oa.service.IStorageService;
 import com.qlx.oa.vo.StorageVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,6 +37,7 @@ public class StorageController {
     private IStorageService storageService;
 
     @PostMapping("/add")
+    @CacheEvict(value = "wms:storage", key = "'list'")
     public Result<Boolean> addStorage(@RequestBody @Validated StorageAddDTO storageAddDTO){
         LambdaQueryWrapper<Storage> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Storage::getName, storageAddDTO.getName());
@@ -51,6 +54,7 @@ public class StorageController {
     }
 
     @DeleteMapping("/{id}")
+    @CacheEvict(value = "wms:storage", key = "'list'")
     public Result<Boolean> deleteStorage(@PathVariable Integer id){
         boolean flag = storageService.removeById(id);
         if(!flag){
@@ -60,6 +64,7 @@ public class StorageController {
     }
 
     @PostMapping("/update")
+    @CacheEvict(value = "wms:storage", key = "'list'")
     public Result<Boolean> updateStorage(@RequestBody @Validated StorageUpdateDTO storageUpdateDTO){
         if(storageUpdateDTO.getId() == null){
             throw  new BusinessException(400, "仓库ID不可为空");
@@ -74,6 +79,7 @@ public class StorageController {
     }
 
     @GetMapping("/list")
+    @Cacheable(value = "wms:storage", key = "'list'")
     public Result<List<StorageVO>> listStorage(){
         List<Storage> list = storageService.list();
         List<StorageVO> VOList = list.stream().map(storage -> {

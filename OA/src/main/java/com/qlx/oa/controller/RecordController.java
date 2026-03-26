@@ -16,6 +16,8 @@ import com.qlx.oa.service.IRecordService;
 import com.qlx.oa.service.IUserService;
 import com.qlx.oa.vo.RecordResVO;
 import lombok.RequiredArgsConstructor;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -43,6 +46,7 @@ public class RecordController {
     private final IRecordService recordService;
     private final IUserService userService;
     private final IGoodsService goodsService;
+    private final RedissonClient redissonClient;
 
     @PostMapping("/list/page")
     public Result<Page<RecordResVO>> listPage(@RequestBody @Validated RecordPageDTO recordPageDTO) {
@@ -142,8 +146,6 @@ public class RecordController {
     @PostMapping("/addRecord")
     @Transactional(rollbackFor = Exception.class)
     public Result<?> addRecord(@RequestBody @Validated RecordAddDTO recordAddDTO) {
-        Record record = new Record();
-        BeanUtils.copyProperties(recordAddDTO, record);
         Integer actionType = recordAddDTO.getActionType();
         Integer goodsId = recordAddDTO.getGoods();
         Integer ccount = recordAddDTO.getCount();
@@ -152,35 +154,61 @@ public class RecordController {
             throw new BusinessException(400,"参数错误");
         }
 
-        if (actionType.equals(1)) {
+        // 定义极其精细的锁粒度：只锁当前被操作的这件物品！
+        String lockKey = "wms:lock:goods:" + goodsId;
+        RLock lock = redissonClient.getLock(lockKey);
 
-            boolean success = goodsService.update(new LambdaUpdateWrapper<Goods>()
-                    .eq(Goods::getId, goodsId)
-                    .setSql("count = count + " + ccount)
-            );
-            if (!success) {
-                throw new BusinessException(400,"入库失败，物品可能已被删除");
+        try {
+            // 尝试拿锁 (Fail-Fast 快速失败机制)
+            // 最多排队等 3 秒。-1 代表开启看门狗（业务没执行完绝对不释放锁）
+            boolean isLocked = lock.tryLock(3, -1, TimeUnit.SECONDS);
+
+            if (!isLocked) {
+                // 如果 3 秒都没排到队，说明瞬间有成百上千人同时操作这个物品。
+                // 触发快速失败，直接打回请求，保护底层的 MySQL
+                throw new BusinessException(500, "当前操作人数过多，请稍后再试！");
             }
 
-        } else if (actionType.equals(2)) {
+            Record record = new Record();
+            BeanUtils.copyProperties(recordAddDTO, record);
 
-            boolean success = goodsService.update(new LambdaUpdateWrapper<Goods>()
-                    .eq(Goods::getId, goodsId)
-                    .ge(Goods::getCount, ccount)
-                    .setSql("count = count - " + ccount)
-            );
-            if (!success) {
-                throw new BusinessException(400,"手慢了！当前库存不足");
+            if (actionType.equals(1)) {
+                boolean success = goodsService.update(new LambdaUpdateWrapper<Goods>()
+                        .eq(Goods::getId, goodsId)
+                        .setSql("count = count + " + ccount)
+                );
+                if (!success) {
+                    throw new BusinessException(400,"入库失败，物品可能已被删除");
+                }
+
+            } else if (actionType.equals(2)) {
+                // MySQL 乐观锁兜底：ge(count, ccount) 保证数据库层面的绝对安全
+                boolean success = goodsService.update(new LambdaUpdateWrapper<Goods>()
+                        .eq(Goods::getId, goodsId)
+                        .ge(Goods::getCount, ccount)
+                        .setSql("count = count - " + ccount)
+                );
+                if (!success) {
+                    throw new BusinessException(400,"手慢了！当前库存不足");
+                }
+            } else {
+                throw new BusinessException(400,"非法的操作类型");
             }
-        } else {
-            throw new BusinessException(400,"非法的操作类型");
+
+            record.setCreatetime(LocalDateTime.now());
+            recordService.save(record);
+
+            return Result.success();
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(500, "系统繁忙，操作异常！");
+        } finally {
+
+            if (lock != null && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
         }
-
-        record.setCreatetime(LocalDateTime.now());
-
-        recordService.save(record);
-
-        return Result.success();
     }
 
 }

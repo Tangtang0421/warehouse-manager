@@ -9,20 +9,27 @@ import com.qlx.oa.dto.UserAddDTO;
 import com.qlx.oa.dto.UserLoginDTO;
 import com.qlx.oa.dto.UserPageDTO;
 import com.qlx.oa.dto.UserUpdateDTO;
+import com.qlx.oa.po.Menu;
 import com.qlx.oa.po.User;
+import com.qlx.oa.service.IMenuService;
 import com.qlx.oa.service.IUserService;
+import com.qlx.oa.utils.JwtUtils;
+import com.qlx.oa.vo.UserLoginVO;
 import com.qlx.oa.vo.UserVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
  * <p>
- *  前端控制器
+ * 前端控制器
  * </p>
  *
  * @author qlx
@@ -32,12 +39,17 @@ import java.util.stream.Collectors;
 @RequestMapping("/user")
 public class UserController {
     @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+    @Autowired
     private IUserService userService;
+    @Autowired
+    private IMenuService menuService;
+
+    private static final String SALT = "qlx_oa_system_#@!_2026";
 
     @GetMapping("/list")
     public Result<List<UserVO>> findAll(){
         List<User> userList = userService.list();
-        //批量PO转VO
         List<UserVO> voList = userList.stream().map(user -> {
             UserVO vo = new UserVO();
             BeanUtils.copyProperties(user, vo);
@@ -45,6 +57,7 @@ public class UserController {
         }).collect(Collectors.toList());
         return Result.success(voList);
     }
+
     @PostMapping("/add")
     public Result<Boolean> add(@RequestBody @Validated UserAddDTO userAddDTO){
         String no = userAddDTO.getNo();
@@ -57,46 +70,59 @@ public class UserController {
         }
         User user = new User();
         BeanUtils.copyProperties(userAddDTO,user);
+
+        String rawPassword = userAddDTO.getPassword();
+        String encodedPassword = org.springframework.util.DigestUtils.md5DigestAsHex((rawPassword + SALT).getBytes());
+        user.setPassword(encodedPassword);
+
         boolean flag = userService.save(user);
         if(!flag){
             throw new BusinessException("新增用户失败");
-            }
+        }
         return Result.success() ;
-
     }
+
     @DeleteMapping("/{id}")
     public Result<Boolean> delete(@PathVariable("id") Integer id){
-         if(id == null){
-             throw new BusinessException(400,"ID不能为空");
-         }
-         User u=new User();
-         u.setId(id);
-         u.setValidStatus(0);
-         boolean flag=userService.updateById(u);
-         if(!flag){
-             throw new BusinessException("删除失败");
-         }
-         return Result.success() ;
+        if(id == null){
+            throw new BusinessException(400,"ID不能为空");
+        }
+        User u = new User();
+        u.setId(id);
+        u.setValidStatus(0);
+        boolean flag = userService.updateById(u);
+        if(!flag){
+            throw new BusinessException("删除失败");
+        }
+        return Result.success() ;
     }
+
     @PostMapping ("/update")
     public Result<Boolean> modify(@RequestBody @Validated UserUpdateDTO userUpdateDTO){
         if (userUpdateDTO.getId() == null) {
             throw new BusinessException(400, "更新失败，缺少用户ID");
         }
-        if (userUpdateDTO.getPassword() != null && userUpdateDTO.getPassword().trim().isEmpty()) {
+
+
+        String rawPassword = userUpdateDTO.getPassword();
+        if (rawPassword != null && !rawPassword.trim().isEmpty()) {
+            String encodedPassword = org.springframework.util.DigestUtils.md5DigestAsHex((rawPassword + SALT).getBytes());
+            userUpdateDTO.setPassword(encodedPassword);
+        } else {
             userUpdateDTO.setPassword(null);
         }
+
         User user = new User();
         BeanUtils.copyProperties(userUpdateDTO,user);
-        boolean flag =userService.updateById(user);
+        boolean flag = userService.updateById(user);
         if(!flag){
             throw new BusinessException("更新失败");
         }
         return Result.success() ;
     }
+
     @GetMapping("/search")
     public Result<List<UserVO>> search(@RequestParam(required = false) String keyword) {
-
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
 
         if (StringUtils.isNotBlank(keyword)) {
@@ -117,14 +143,12 @@ public class UserController {
 
     @PostMapping("/list/page")
     public Result<Page<UserVO>> pageList(@RequestBody @Validated UserPageDTO userPageDTO) {
-        //确定返回对象的页数，以及页大小
         Page<User> page = new Page<>(userPageDTO.getPageNum(), userPageDTO.getPageSize());
 
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(User::getValidStatus, 1);
 
         if (StringUtils.isNotBlank(userPageDTO.getKeyword())) {
-
             wrapper.and(w -> w.like(User::getName, userPageDTO.getKeyword()).or().like(User::getNo, userPageDTO.getKeyword()));
         }
 
@@ -149,11 +173,10 @@ public class UserController {
 
         voPage.setRecords(voList);
         return Result.success(voPage);
-
     }
 
     @PostMapping("/login")
-    public Result<User> login(@RequestBody @Validated UserLoginDTO userLoginDTO) {
+    public Result<UserLoginVO> login(@RequestBody @Validated UserLoginDTO userLoginDTO) {
 
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(User::getNo, userLoginDTO.getNo());
@@ -161,14 +184,62 @@ public class UserController {
         if (dbUser == null) {
             throw new BusinessException("账号或密码错误");
         }
+
+        String inputPassword = userLoginDTO.getPassword();
+        String encodedInputPassword = org.springframework.util.DigestUtils.md5DigestAsHex((inputPassword + SALT).getBytes());
+
+        if (!dbUser.getPassword().equals(encodedInputPassword)) {
+            throw new BusinessException("账号或密码错误");
+        }
+
         if (dbUser.getValidStatus() == 0) {
             throw new BusinessException("该账号已注销或被禁用，请联系管理员");
         }
-        if (!dbUser.getPassword().equals(userLoginDTO.getPassword())) {
-            throw new BusinessException("账号或密码错误");
-        }
-        dbUser.setPassword(null);
-        return Result.success(dbUser);
 
+
+        dbUser.setPassword(null);
+
+        // 生成 JWT Token
+        String token = JwtUtils.generateToken(dbUser.getId(), dbUser.getNo());
+
+        // 获取用户的菜单权限
+        List<Menu> menuList = menuService.getMenusByRoleId(dbUser.getRoleId());
+
+        // 将 Token 作为 Key，只将用户信息作为 Value 存入 Redis
+        String redisKey = "login:token:" + token;
+        Map<String, Object> cacheData = new HashMap<>();
+        cacheData.put("user", dbUser);
+
+        stringRedisTemplate.opsForValue().set(
+                redisKey,
+                com.alibaba.fastjson2.JSON.toJSONString(cacheData),
+                2,
+                java.util.concurrent.TimeUnit.HOURS
+        );
+
+        UserLoginVO loginVO = new UserLoginVO();
+        loginVO.setToken(token);
+        loginVO.setUser(dbUser);
+        loginVO.setMenus(menuList);
+
+        return Result.success(loginVO);
+    }
+
+    @PostMapping("/logout")
+    // 用 @RequestHeader 注解，告诉 Spring Boot：去把 Header 里Authorization 的值拿过来，赋值给 headerToken 变量
+    public Result<Boolean> logout(@RequestHeader(value = "Authorization", required = false) String headerToken) {
+
+        if (StringUtils.isNotBlank(headerToken) && headerToken.startsWith("Bearer ")) {
+
+            String token = headerToken.substring(7);
+
+
+            String redisKey = "login:token:" + token;
+
+
+            stringRedisTemplate.delete(redisKey);
+        }
+
+        return Result.success();
     }
 }

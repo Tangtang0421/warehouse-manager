@@ -75,24 +75,13 @@ const handleLogin = () => {
       request.post('/user/login', loginForm.value).then(res => {
         ElMessage.success('登录成功！正在加载系统权限...')
         
-        // 提取用户信息并存入浏览器保险箱
-        const userData = res.data || res
-        localStorage.setItem('user', JSON.stringify(userData))
+        // 提取token、用户信息和菜单并存入localStorage
+        localStorage.setItem('token', res.token);
+        localStorage.setItem('user', JSON.stringify(res.user));
+        localStorage.setItem('menus', JSON.stringify(res.menus));
         
-        // 🌟 2. 【核心新增】拿着刚返回的 roleId，去请求专属菜单！
-        // 注意：如果你数据库里角色的字段不叫 roleId，请把这里的 userData.roleId 换成真实的字段名
-        request.get('/menu/list?roleId=' + userData.roleId).then(menuRes => {
-            
-            // 提取菜单列表并存入浏览器
-            const menuList = menuRes.data || menuRes
-            localStorage.setItem('menus', JSON.stringify(menuList))
-            
-            // 🌟 3. 门票和菜单全部就位，安全传送至主页！
-            window.location.href = '/'
-            
-        }).catch(() => {
-            ElMessage.error('获取用户权限失败，请联系管理员')
-        })
+        // 🌟 2. 直接跳转，不需要再次请求菜单
+        window.location.href = '/'
         
       }).catch(() => {
         // 登录失败，拦截器会自动提示，这里只需要关闭 loading
